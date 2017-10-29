@@ -1,0 +1,169 @@
+//NOTE: This code is all written in Processing
+//main code for sound_animation.  
+//Uses Cell class, which is at the bottom of this file.
+
+import processing.sound.*;
+
+//global variables declarations
+Cell[][] cells;
+Cell[][] neighbors;
+int row = 20; //these are how many rows and columns there are
+int column = 20;
+int state;
+int total;
+Amplitude amp;
+AudioIn in;
+float col;
+int middleX;
+int middleY;
+
+void setup() {
+  size(800, 600);
+  setUpScreen();
+  // Create an Input stream which is routed into the Amplitude analyzer
+  amp = new Amplitude(this);
+  in = new AudioIn(this, 0);
+  in.start();
+  amp.input(in);
+}
+
+void draw() {
+  frameRate(15);
+  //col will be used to set the next state of neighboring cells
+  col = amp.analyze()*5*255;
+  changeState();
+  for (int i = 0; i < row; i++) {
+    for (int j = 0; j < column; j++) {
+      cells[i][j].drawMe();
+    }
+  }
+}
+
+void mousePressed() {
+  turnWhite(pixelXtoCell(mouseX), pixelYtoCell(mouseY));
+}
+
+void setUpScreen() {
+  cells = new Cell[row][column];
+  for (int i = 0; i < row; i++) {
+    for (int j = 0; j < column; j++) {
+      //this gives the pixel coordinate of the cell
+      float _x = i*(width/row);
+      float _y = j*(height/column);
+      cells[i][j] = new Cell(_x, _y);
+    }
+  }
+  for (int i = 0; i < row; i++) {
+    for (int j = 0; j < column; j++) {
+      //below adds the neighbors to each cell
+      //for neighbor i-1, j
+      if (i > 0) {
+        cells[i][j].addNeighbor(cells[i-1][j]);
+      }
+      //for neighbor i, j-1
+      if (j > 0) {
+        cells[i][j].addNeighbor(cells[i][j-1]);
+      }
+      //for neighbor i, j+1
+      if (j < column - 1) {
+        cells[i][j].addNeighbor(cells[i][j+1]);
+      }
+      //for neighbor i+1, j
+      if (i < row - 1) {
+        cells[i][j].addNeighbor(cells[i+1][j]);
+      }
+      cells[i][j].drawMe();
+    }
+  }
+  middleX = floor(row/2);
+  middleY = floor(column/2);
+}
+
+void changeState() {
+  int a; //will be the size of the neighbors array
+  float x; //this will be the state of a given neighbor
+  float y;
+  float total;
+
+  for (int i = 0; i < row; i++) {
+    for (int j = 0; j < column; j++) {
+      total = 0;
+      a = cells[i][j].neighbors.size();
+      for (int k = 0; k < a; k++) {
+        Cell neighbor = cells[i][j].neighbors.get(k);
+        x = neighbor.state;
+        total += x;
+      }
+      cells[i][j].nextState = (cells[i][j].state + total)/(a + 1);
+    }
+  }
+  if (col > 255) {
+    turnWhite(middleX, middleY);
+  } else {
+    cells[middleX][middleY].nextState = col;
+  }
+  for (int i = 0; i < row; i++) {
+    for (int j = 0; j < column; j++) {
+      cells[i][j].state = cells[i][j].nextState;
+    }
+  }
+}
+
+void turnWhite(int x, int y) {
+  //above are cell coordinates
+  cells[x][y].state = 255;
+  int a = cells[x][y].neighbors.size();
+  for (int k = 0; k < a; k++) {
+    Cell neighbor = cells[x][y].neighbors.get(k);
+    neighbor.state = 255;
+  }
+}
+
+int pixelXtoCell(float x) {
+  return floor((column/width)*x);
+}
+
+int pixelYtoCell(float y) {
+  return floor((row/height)*y);
+}
+
+
+//Cell class used in the code above
+class Cell {
+  float state;
+  ArrayList<Cell> neighbors;
+  float posX; //these are the pixel coordinates of the cell
+  float posY;
+  int w = width/row; //width and height of each cell
+  int h = height/column;
+  float nextState;
+  int x;
+
+  Cell(float _x, float _y) {
+    posX = _x;
+    posY = _y;
+    state = floor(random(256));
+    nextState = state;
+    neighbors = new ArrayList<Cell>();
+  }
+
+  void addNeighbor(Cell neighborCell) {
+    neighbors.add(neighborCell);
+  }
+
+  void drawMe() {
+    noStroke();
+    fill(state, state, state);
+    rect(posX, posY, w, h);
+  }
+
+  boolean mouseOverMe() {
+    float dx = mouseX - posX;
+    float dy = mouseY - posY;
+    if (dx*dx + dy*dy < w*w) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+}
